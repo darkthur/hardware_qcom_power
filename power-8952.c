@@ -79,15 +79,23 @@ static int profile_bias_performance[] = {
 #ifdef INTERACTION_BOOST
 int get_number_of_profiles()
 {
-    return 5;
+
+    switch (hint) {
+        case POWER_HINT_VSYNC:
+            break;
+        case POWER_HINT_VIDEO_ENCODE:
+            process_video_encode_hint(data);
+            return HINT_HANDLED;
+        default:
+            break;
+    }
+    return HINT_NONE;
 }
 #endif
 
 static int set_power_profile(void *data)
 {
-    int profile = data ? *((int*)data) : 0;
-    int ret = -EINVAL;
-    const char *profile_name = NULL;
+    char governor[80];
 
     if (profile == current_power_profile)
         return 0;
