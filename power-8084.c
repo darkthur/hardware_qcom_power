@@ -170,8 +170,42 @@ static int resources_interaction_boost[] = {
 static int resources_launch[] = {
     CPUS_ONLINE_MIN_2,
     CPU0_MIN_FREQ_TURBO_MAX,
-    CPU1_MIN_FREQ_T
-const int LAUNCH_DURATION                = 2000; /* ms */
+    CPU1_MIN_FREQ_TURBO_MAX,
+    CPU2_MIN_FREQ_NONTURBO_MAX + 5,
+    CPU3_MIN_FREQ_NONTURBO_MAX + 5
+};
+
+const int DEFAULT_INTERACTIVE_DURATION   =  200; /* ms */
+const int MIN_FLING_DURATION             = 1500; /* ms */
+const int MAX_INTERACTIVE_DURATION       = 5000; /* ms */
+const int MAX_LAUNCH_DURATION            = 5000; /* ms */
+
+static int process_activity_launch_hint(void *data)
+{
+    static int launch_handle = -1;
+    static int launch_mode = 0;
+
+    // release lock early if launch has finished
+    if (!data) {
+        if (CHECK_HANDLE(launch_handle)) {
+            release_request(launch_handle);
+            launch_handle = -1;
+        }
+        launch_mode = 0;
+        return HINT_HANDLED;
+    }
+
+    if (!launch_mode) {
+        launch_handle = interaction_with_handle(launch_handle, MAX_LAUNCH_DURATION,
+                ARRAY_SIZE(resources_launch), resources_launch);
+        if (!CHECK_HANDLE(launch_handle)) {
+            ALOGE("Failed to perform launch boost");
+            return HINT_NONE;
+        }
+        launch_mode = 1;
+    }
+    return HINT_HANDLED;
+}
 
 int power_hint_override(power_hint_t hint, void *data)
 {
@@ -223,10 +257,7 @@ int power_hint_override(power_hint_t hint, void *data)
             }
             return HINT_HANDLED;
         case POWER_HINT_LAUNCH:
-            duration = LAUNCH_DURATION;
-            interaction(duration, ARRAY_SIZE(resources_launch),
-                    resources_launch);
-            return HINT_HANDLED;
+            return process_activity_launch_hint(data);
         default:
             break;
     }
